@@ -16,7 +16,7 @@ from itertools import product
 
 from nose.tools import assert_equal, assert_is_none, assert_raises
 
-from common.board import CartesianBoard
+from common.board import CartesianBoard, Operation, Transition
 from common.coordinates import CartesianPoint
 
 SMALL_BOARD = (3, 3)
@@ -60,3 +60,29 @@ class TestCartesianBoards:
             yield assert_equal, board[zero_point], piece
             del board[zero_point]
             yield assert_is_none, board[zero_point]
+
+    def test_transitions(self):
+        """Test executing a sequence of transitions"""
+        point_sets = [
+            [CartesianPoint(0, 0), CartesianPoint(0, 1), CartesianPoint(1, 1)],
+            [CartesianPoint(0, 1, 0, 1), CartesianPoint(0, 0, 1, 2), CartesianPoint(0, 1, 2, 3)]
+        ]
+        pieces = ['Rook', 'Bishop']
+        for points, board in zip(point_sets, self.boards):
+            # Place the pieces on points 1 and 2
+            board[points[0]] = pieces[0]
+            board[points[1]] = pieces[1]
+            yield assert_equal, board[points[0]], pieces[0]
+            yield assert_equal, board[points[1]], pieces[1]
+            yield assert_is_none, board[points[2]]
+            # Move the pieces to points 2 and 3
+            transitions = [
+                Transition(Operation.REMOVE, points[0]),
+                Transition(Operation.REMOVE, points[1]),
+                Transition(Operation.PLACE, points[1], pieces[0]),
+                Transition(Operation.PLACE, points[2], pieces[1])
+            ]
+            board.apply(transitions)
+            yield assert_is_none, board[points[0]]
+            yield assert_equal, board[points[1]], pieces[0]
+            yield assert_equal, board[points[2]], pieces[1]
