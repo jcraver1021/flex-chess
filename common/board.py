@@ -12,11 +12,25 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 """Board objects in common use"""
+from enum import Enum
 from functools import reduce
-from typing import Any, Optional, Tuple
+from typing import Any, Iterable, NamedTuple, Optional, Tuple
 
 from common.coordinates import CartesianPoint
 from common.tools import make_list_matrix
+
+
+class Operation(Enum):
+    """An operation on the game board"""
+    PLACE = 1
+    REMOVE = 2
+
+
+class Transition(NamedTuple):
+    """A change to the state of the board"""
+    op: Operation
+    point: CartesianPoint
+    payload: Any = None
 
 
 class CartesianBoard:
@@ -48,3 +62,14 @@ class CartesianBoard:
         self._check_on_board(key, True)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = None
+
+    def apply(self, transitions):
+        # type: (Iterable[Transition]) -> None
+        """Apply a sequence of transitions to the board"""
+        for transition in transitions:
+            if transition.op == Operation.PLACE:
+                self[transition.point] = transition.payload
+            elif transition.op == Operation.REMOVE:
+                del self[transition.point]
+            else:
+                raise ValueError('Invalid transition: {}'.format(transition))
