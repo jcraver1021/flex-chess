@@ -47,7 +47,7 @@ class TestCartesianBoards:
         yield assert_raises, IndexError, self.boards[1].__getitem__, CartesianPoint(*HIGH_D_BOARD)
 
     def test_set_object(self):
-        """Test placing an object"""
+        """Test placing and removing an object"""
         piece = 'Silly King'
         points = [CartesianPoint(1, 1), CartesianPoint(0, 1, 0, 1)]
         for board, point in zip(self.boards, points):
@@ -55,3 +55,8 @@ class TestCartesianBoards:
             yield assert_equal, board[point], piece
             board[point] = None
             yield assert_is_none, board[point]
+            zero_point = CartesianPoint.zero(len(point))
+            board[zero_point] = piece
+            yield assert_equal, board[zero_point], piece
+            del board[zero_point]
+            yield assert_is_none, board[zero_point]

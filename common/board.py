@@ -43,3 +43,8 @@ class CartesianBoard:
         self._check_on_board(key, True)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = value
+
+    def __delitem__(self, key):
+        self._check_on_board(key, True)
+        final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
+        final_column[key[-1]] = None
