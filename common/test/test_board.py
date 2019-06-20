@@ -86,3 +86,19 @@ class TestCartesianBoards:
             yield assert_is_none, board[points[0]]
             yield assert_equal, board[points[1]], pieces[0]
             yield assert_equal, board[points[2]], pieces[1]
+
+    def test_invalid_transition(self):
+        """Test that moving a piece off the board fails"""
+        point_sets = [
+            [CartesianPoint(0, 0), CartesianPoint(-1, -1)],
+            [CartesianPoint(0, 0, 0, 0), CartesianPoint(-1, -1, -1, -1)]
+        ]
+        piece = 'Pawn'
+        for points, board in zip(point_sets, self.boards):
+            board[points[0]] = piece
+            yield assert_equal, board[points[0]], piece
+            transitions = [
+                Transition(Operation.REMOVE, points[0]),
+                Transition(Operation.PLACE, points[1])
+            ]
+            yield assert_raises, IndexError, board.apply, transitions
