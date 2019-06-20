@@ -14,7 +14,7 @@
 """Test the board functionality"""
 from itertools import product
 
-from nose.tools import assert_equal, assert_is_none, assert_raises
+from nose.tools import assert_equal, assert_in, assert_is_none, assert_raises
 
 from common.board import CartesianBoard, Operation, Transition
 from common.coordinates import CartesianPoint
@@ -102,3 +102,14 @@ class TestCartesianBoards:
                 Transition(Operation.PLACE, points[1])
             ]
             yield assert_raises, IndexError, board.apply, transitions
+
+    def test_capture(self):
+        """Tests that capturing a piece puts it into jail"""
+        piece = 'Knight'
+        player = 'Green'
+        points = [CartesianPoint.zero(2), CartesianPoint.zero(4)]
+        for point, board in zip(points, self.boards):
+            board[point] = piece
+            board.apply([Transition(Operation.CAPTURE, point, player)])
+            yield assert_is_none, board[point]
+            yield assert_in, piece, board.jail[player]

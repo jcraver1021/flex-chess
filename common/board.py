@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 """Board objects in common use"""
+from collections import defaultdict
 from enum import Enum
 from functools import reduce
 from typing import Any, Iterable, NamedTuple, Optional, Tuple
@@ -24,21 +25,23 @@ class Operation(Enum):
     """An operation on the game board"""
     PLACE = 1
     REMOVE = 2
+    CAPTURE = 3
 
 
 class Transition(NamedTuple):
     """A change to the state of the board"""
     op: Operation
-    point: CartesianPoint
+    point: CartesianPoint = None
     payload: Any = None
 
 
 class CartesianBoard:
     """A game board with cartesian coordinates. CartesianPoint are finite and at least 0."""
     def __init__(self, shape):
-        # type: (Tuple[int]) -> None
+        # type: (Tuple) -> None
         self.shape = CartesianPoint(*shape)
         self.board = make_list_matrix(shape)
+        self.jail = defaultdict(set)
 
     def _check_on_board(self, coordinates, raise_if_off=False):
         # type: (CartesianPoint, Optional[bool]) -> bool
@@ -70,6 +73,9 @@ class CartesianBoard:
             if transition.op == Operation.PLACE:
                 self[transition.point] = transition.payload
             elif transition.op == Operation.REMOVE:
+                del self[transition.point]
+            elif transition.op == Operation.CAPTURE:
+                self.jail[transition.payload].add(self[transition.point])
                 del self[transition.point]
             else:
                 raise ValueError('Invalid transition: {}'.format(transition))
