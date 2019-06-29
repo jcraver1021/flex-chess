@@ -15,7 +15,7 @@
 from collections import defaultdict
 from enum import Enum
 from functools import reduce
-from typing import Any, Iterable, NamedTuple, Optional, Tuple
+from typing import Any, Iterable, NamedTuple, Tuple
 
 from common.coordinates import CartesianPoint
 from common.tools import make_list_matrix
@@ -43,26 +43,29 @@ class CartesianBoard:
         self.board = make_list_matrix(shape)
         self.jail = defaultdict(set)
 
-    def _check_on_board(self, coordinates, raise_if_off=False):
-        # type: (CartesianPoint, Optional[bool]) -> bool
-        on_board = CartesianPoint.zero(len(coordinates)) <= coordinates < self.shape
-        if raise_if_off and not on_board:
+    def __contains__(self, item):
+        # type: (CartesianPoint) -> bool
+        return CartesianPoint.zero(len(item)) <= item < self.shape
+
+    def _assert_on_board(self, coordinates):
+        # type: (CartesianPoint) -> None
+        if coordinates not in self:
             raise IndexError('{} not on board'.format(coordinates))
-        return on_board
 
     def __getitem__(self, item):
         # type: (CartesianPoint) -> Any
-        self._check_on_board(item, True)
+        self._assert_on_board(item)
         return reduce(lambda matrix, index: matrix[index], item, self.board)
 
     def __setitem__(self, key, value):
         # type: (CartesianPoint, Any) -> None
-        self._check_on_board(key, True)
+        self._assert_on_board(key)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = value
 
     def __delitem__(self, key):
-        self._check_on_board(key, True)
+        # type: (CartesianPoint) -> None
+        self._assert_on_board(key)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = None
 
@@ -76,6 +79,7 @@ class CartesianBoard:
                 del self[transition.point]
             elif transition.op == Operation.CAPTURE:
                 self.jail[transition.payload].add(self[transition.point])
+                del self[transition.point]
                 del self[transition.point]
             else:
                 raise ValueError('Invalid transition: {}'.format(transition))

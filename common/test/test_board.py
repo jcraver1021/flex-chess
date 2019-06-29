@@ -39,6 +39,24 @@ class TestCartesianBoards:
             for index in product(*board_scan):
                 yield assert_is_none, board[CartesianPoint(*index)]
 
+    def test_contains(self):
+        """Test the contains operator"""
+        point_sets = [
+            [
+                (CartesianPoint(-1, 0), False),
+                (CartesianPoint(1, 1), True),
+                (CartesianPoint(*SMALL_BOARD), False)
+            ],
+            [
+                (CartesianPoint(-1, 0, 0, 0), False),
+                (CartesianPoint(0, 1, 1, 1), True),
+                (CartesianPoint(*HIGH_D_BOARD), False)
+            ]
+        ]
+        for board, point_set in zip(self.boards, point_sets):
+            for point, on_board in point_set:
+                yield assert_equal, point in board, on_board
+
     def test_oob(self):
         """Testing that accessing a point off the board causes an exception"""
         yield assert_raises, IndexError, self.boards[0].__getitem__, CartesianPoint(-1, -1)
