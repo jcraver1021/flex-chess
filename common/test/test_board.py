@@ -16,8 +16,9 @@ from itertools import product
 
 from nose.tools import assert_equal, assert_in, assert_is_none, assert_raises
 
-from common.board import CartesianBoard, Operation, Transition
+from common.board import CartesianBoard, Operation, Mutation, Piece
 from common.coordinates import CartesianPoint
+from common.player import Player
 
 SMALL_BOARD = (3, 3)
 HIGH_D_BOARD = (1, 2, 3, 4)
@@ -27,6 +28,7 @@ class TestCartesianBoards:
     """Test board properties on a small board"""
     def __init__(self):
         self.board_scans = [[range(i) for i in SMALL_BOARD], [range(i) for i in HIGH_D_BOARD]]
+        self.players = [Player(color) for color in ['Red', 'Blue']]
 
     @classmethod
     def setup_class(cls):
@@ -66,7 +68,7 @@ class TestCartesianBoards:
 
     def test_set_object(self):
         """Test placing and removing an object"""
-        piece = 'Silly King'
+        piece = Piece(self.players[0])
         points = [CartesianPoint(1, 1), CartesianPoint(0, 1, 0, 1)]
         for board, point in zip(self.boards, points):
             board[point] = piece
@@ -79,13 +81,13 @@ class TestCartesianBoards:
             del board[zero_point]
             yield assert_is_none, board[zero_point]
 
-    def test_transitions(self):
-        """Test executing a sequence of transitions"""
+    def test_mutations(self):
+        """Test executing a sequence of mutations"""
         point_sets = [
             [CartesianPoint(0, 0), CartesianPoint(0, 1), CartesianPoint(1, 1)],
             [CartesianPoint(0, 1, 0, 1), CartesianPoint(0, 0, 1, 2), CartesianPoint(0, 1, 2, 3)]
         ]
-        pieces = ['Rook', 'Bishop']
+        pieces = [Piece(self.players[0]) for _ in range(2)]
         for points, board in zip(point_sets, self.boards):
             # Place the pieces on points 1 and 2
             board[points[0]] = pieces[0]
@@ -94,40 +96,59 @@ class TestCartesianBoards:
             yield assert_equal, board[points[1]], pieces[1]
             yield assert_is_none, board[points[2]]
             # Move the pieces to points 2 and 3
-            transitions = [
-                Transition(Operation.REMOVE, points[0]),
-                Transition(Operation.REMOVE, points[1]),
-                Transition(Operation.PLACE, points[1], pieces[0]),
-                Transition(Operation.PLACE, points[2], pieces[1])
+            sequence = [
+                Mutation(Operation.REMOVE, points[0]),
+                Mutation(Operation.REMOVE, points[1]),
+                Mutation(Operation.PLACE, points[1], pieces[0]),
+                Mutation(Operation.PLACE, points[2], pieces[1])
             ]
-            board.apply(transitions)
+            board.apply(sequence)
             yield assert_is_none, board[points[0]]
             yield assert_equal, board[points[1]], pieces[0]
             yield assert_equal, board[points[2]], pieces[1]
 
-    def test_invalid_transition(self):
+    def test_invalid_mutation(self):
         """Test that moving a piece off the board fails"""
         point_sets = [
             [CartesianPoint(0, 0), CartesianPoint(-1, -1)],
             [CartesianPoint(0, 0, 0, 0), CartesianPoint(-1, -1, -1, -1)]
         ]
-        piece = 'Pawn'
+        piece = Piece(self.players[0])
         for points, board in zip(point_sets, self.boards):
             board[points[0]] = piece
             yield assert_equal, board[points[0]], piece
-            transitions = [
-                Transition(Operation.REMOVE, points[0]),
-                Transition(Operation.PLACE, points[1])
+            sequence = [
+                Mutation(Operation.REMOVE, points[0]),
+                Mutation(Operation.PLACE, points[1])
             ]
-            yield assert_raises, IndexError, board.apply, transitions
+            yield assert_raises, IndexError, board.apply, sequence
 
-    def test_capture(self):
+    def test_capture_no_piece(self):
         """Tests that capturing a piece puts it into jail"""
-        piece = 'Knight'
-        player = 'Green'
+        piece1 = Piece(self.players[0])
+        piece2 = Piece(self.players[1])
         points = [CartesianPoint.zero(2), CartesianPoint.zero(4)]
         for point, board in zip(points, self.boards):
-            board[point] = piece
-            board.apply([Transition(Operation.CAPTURE, point, player)])
+            yield assert_equal, len(board.jail[self.players[0]]), 0
+            yield assert_equal, len(board.jail[self.players[1]]), 0
+            board[point] = piece2
+            board.apply([Mutation(Operation.CAPTURE, point, piece1)])
             yield assert_is_none, board[point]
-            yield assert_in, piece, board.jail[player]
+            yield assert_in, piece2, board.jail[self.players[0]]
+            yield assert_equal, len(board.jail[self.players[0]]), 1
+            yield assert_equal, len(board.jail[self.players[1]]), 0
+
+    def test_move_capture(self):
+        """Tests that capturing a piece with another piece puts it into jail"""
+        piece1 = Piece(self.players[0])
+        piece2 = Piece(self.players[1])
+        points = [CartesianPoint.zero(2), CartesianPoint.zero(4)]
+        for point, board in zip(points, self.boards):
+            yield assert_equal, len(board.jail[self.players[0]]), 0
+            yield assert_equal, len(board.jail[self.players[1]]), 0
+            board[point] = piece2
+            board.apply([Mutation(Operation.PLACE, point, piece1)])
+            yield assert_equal, board[point], piece1
+            yield assert_in, piece2, board.jail[self.players[0]]
+            yield assert_equal, len(board.jail[self.players[0]]), 1
+            yield assert_equal, len(board.jail[self.players[1]]), 0

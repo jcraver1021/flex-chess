@@ -15,33 +15,51 @@
 from collections import defaultdict
 from enum import Enum
 from functools import reduce
-from typing import Any, Iterable, NamedTuple, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Set, Tuple
 
 from common.coordinates import CartesianPoint
+from common.player import Player
 from common.tools import make_list_matrix
 
 
+class Piece:
+    """A piece belonging to a player"""
+    def __init__(self, player):
+        # type: (Player) -> None
+        self.player = player
+
+
 class Operation(Enum):
-    """An operation on the game board"""
+    """An operation on the game board
+
+    PLACE: Place a piece on the board. Capture the piece that is currently there (if any).
+    REMOVE: Remove a piece from the board, but do not store it in the jail.
+    CAPTURE: Remove a piece from the board and place it into the jail.
+    """
     PLACE = 1
     REMOVE = 2
     CAPTURE = 3
 
 
-class Transition(NamedTuple):
+CAPTURE_OPS = {Operation.PLACE, Operation.CAPTURE}
+REMOVE_OPS = {Operation.REMOVE, Operation.CAPTURE}
+
+
+class Mutation(NamedTuple):
     """A change to the state of the board"""
     op: Operation
-    point: CartesianPoint = None
-    payload: Any = None
+    point: CartesianPoint
+    payload: Piece = None
 
 
 class CartesianBoard:
     """A game board with cartesian coordinates. CartesianPoint are finite and at least 0."""
+
     def __init__(self, shape):
         # type: (Tuple) -> None
-        self.shape = CartesianPoint(*shape)
-        self.board = make_list_matrix(shape)
-        self.jail = defaultdict(set)
+        self.shape = CartesianPoint(*shape)  # type: CartesianPoint
+        self.board = make_list_matrix(shape)  # type: List
+        self.jail = defaultdict(set)  # type: Dict[Player, Set[Piece]]
 
     def __contains__(self, item):
         # type: (CartesianPoint) -> bool
@@ -69,17 +87,13 @@ class CartesianBoard:
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = None
 
-    def apply(self, transitions):
-        # type: (Iterable[Transition]) -> None
-        """Apply a sequence of transitions to the board"""
-        for transition in transitions:
-            if transition.op == Operation.PLACE:
-                self[transition.point] = transition.payload
-            elif transition.op == Operation.REMOVE:
-                del self[transition.point]
-            elif transition.op == Operation.CAPTURE:
-                self.jail[transition.payload].add(self[transition.point])
-                del self[transition.point]
-                del self[transition.point]
-            else:
-                raise ValueError('Invalid transition: {}'.format(transition))
+    def apply(self, sequence):
+        # type: (Iterable[Mutation]) -> None
+        """Apply a sequence of mutations to the board"""
+        for mutation in sequence:
+            if self[mutation.point] and mutation.op in CAPTURE_OPS:
+                self.jail[mutation.payload.player].add(self[mutation.point])
+            if mutation.op in REMOVE_OPS:
+                del self[mutation.point]
+            if mutation.op == Operation.PLACE:
+                self[mutation.point] = mutation.payload
