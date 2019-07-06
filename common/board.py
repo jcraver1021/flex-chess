@@ -13,20 +13,40 @@
 #   limitations under the License.
 """Board objects in common use"""
 from collections import defaultdict
+from copy import deepcopy
 from enum import Enum
 from functools import reduce
-from typing import Any, Dict, Iterable, List, NamedTuple, Set, Tuple
+from typing import Callable, Dict, Generator, Iterable, List, NamedTuple, Set, Tuple
 
 from common.coordinates import CartesianPoint
 from common.player import Player
 from common.tools import make_list_matrix
 
 
+class IllegalBoardState(Exception):
+    """Raised when the board is moved into an illegal state"""
+    pass
+
+
 class Piece:
     """A piece belonging to a player"""
-    def __init__(self, player):
-        # type: (Player) -> None
+    def __init__(self, player, move_generators):
+        # type: (Player, List[Callable[[CartesianBoard, CartesianPoint], Generator]]) -> None
         self.player = player
+        self.move_generators = move_generators
+
+    def get_moves(self, board, point):
+        # type: (CartesianBoard, CartesianPoint) -> List[List[Mutation]]
+        moves = []
+        for g in self.move_generators:
+            for sequence in g(board, point):
+                try:
+                    b = deepcopy(board)
+                    b.apply(sequence)
+                    moves.append(sequence)
+                except IllegalBoardState:
+                    pass
+        return moves
 
 
 class Operation(Enum):
@@ -58,7 +78,7 @@ class CartesianBoard:
     def __init__(self, shape):
         # type: (Tuple) -> None
         self.shape = CartesianPoint(*shape)  # type: CartesianPoint
-        self.board = make_list_matrix(shape)  # type: List
+        self.board = make_list_matrix(shape)
         self.jail = defaultdict(set)  # type: Dict[Player, Set[Piece]]
 
     def __contains__(self, item):
@@ -71,12 +91,13 @@ class CartesianBoard:
             raise IndexError('{} not on board'.format(coordinates))
 
     def __getitem__(self, item):
-        # type: (CartesianPoint) -> Any
+        # type: (CartesianPoint) -> Piece
         self._assert_on_board(item)
+        # noinspection PyTypeChecker
         return reduce(lambda matrix, index: matrix[index], item, self.board)
 
     def __setitem__(self, key, value):
-        # type: (CartesianPoint, Any) -> None
+        # type: (CartesianPoint, Piece) -> None
         self._assert_on_board(key)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = value
