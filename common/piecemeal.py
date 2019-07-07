@@ -14,24 +14,32 @@
 """Module for coordinates to address points on a board"""
 from typing import Any, Generator, List
 
-from common.board import CartesianBoard, Mutation, Operation
-from common.coordinates import CartesianPoint
+from common.board import Board, Mutation, Operation
+from common.coordinates import Point
 
 
 def direct_move(board, origin, destination):
-    # type: (CartesianBoard, CartesianPoint, CartesianPoint) -> List[Mutation]
-    return [Mutation(Operation.REMOVE, origin), Mutation(Operation.PLACE, destination, board[origin])]
+    # type: (Board, Point, Point) -> List[Mutation]
+    """Directly move a piece from one point to another"""
+    return [Mutation(Operation.REMOVE, origin),
+            Mutation(Operation.PLACE, destination, board[origin])]
 
 
 def get_repeated_points(board, point, step_generator, capture=True):
-    # type: (CartesianBoard, CartesianPoint, Any, bool) -> Generator[CartesianPoint]
+    # type: (Board, Point, Any, bool) -> Generator[Point]
     """Generate a 'linear' sequence of points based on a starting point"""
     piece = board[point]
-    point += next(step_generator)
+    try:
+        point += next(step_generator)
+    except StopIteration:
+        return
     while point in board:
         if board[point] is None:
             yield point
-            point += next(step_generator)
+            try:
+                point += next(step_generator)
+            except StopIteration:
+                return
         else:
             if capture and piece.player != board[point].player:
                 yield point

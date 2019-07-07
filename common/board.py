@@ -16,37 +16,41 @@ from collections import defaultdict
 from copy import deepcopy
 from enum import Enum
 from functools import reduce
-from typing import Callable, Dict, Generator, Iterable, List, NamedTuple, Set, Tuple
+from typing import Callable, Dict, Generator, Iterable, List, NamedTuple, Optional, Set, Tuple
 
-from common.coordinates import CartesianPoint
+from common.coordinates import Point
 from common.player import Player
-from common.tools import make_list_matrix
+from common.tools import iterate_submatrices, make_list_matrix
 
 
 class IllegalBoardState(Exception):
     """Raised when the board is moved into an illegal state"""
-    pass
 
 
 class Piece:
     """A piece belonging to a player"""
-    def __init__(self, player, move_generators):
-        # type: (Player, List[Callable[[CartesianBoard, CartesianPoint], Generator]]) -> None
+    def __init__(self, player, token='X', move_generators=None):
+        # type: (Player, str, Optional[Callable[[Board, Point], Generator]]) -> None
         self.player = player
-        self.move_generators = move_generators
+        self.token = token
+        self.move_generators = move_generators or []
 
     def get_moves(self, board, point):
-        # type: (CartesianBoard, CartesianPoint) -> List[List[Mutation]]
+        # type: (Board, Point) -> List[List[Mutation]]
+        """Get a list of all legal sequences by this piece from this point"""
         moves = []
-        for g in self.move_generators:
-            for sequence in g(board, point):
+        for generator in self.move_generators:
+            for sequence in generator(board, point):
                 try:
-                    b = deepcopy(board)
-                    b.apply(sequence)
+                    board_copy = deepcopy(board)
+                    board_copy.apply(sequence)
                     moves.append(sequence)
                 except IllegalBoardState:
                     pass
         return moves
+
+    def __str__(self):
+        return self.token
 
 
 class Operation(Enum):
@@ -68,42 +72,42 @@ REMOVE_OPS = {Operation.REMOVE, Operation.CAPTURE}
 class Mutation(NamedTuple):
     """A change to the state of the board"""
     op: Operation
-    point: CartesianPoint
+    point: Point
     payload: Piece = None
 
 
-class CartesianBoard:
-    """A game board with cartesian coordinates. CartesianPoint are finite and at least 0."""
+class Board:
+    """A game board with cartesian coordinates. Point are finite and at least 0."""
 
     def __init__(self, shape):
         # type: (Tuple) -> None
-        self.shape = CartesianPoint(*shape)  # type: CartesianPoint
+        self.shape = Point(*shape)  # type: Point
         self.board = make_list_matrix(shape)
         self.jail = defaultdict(set)  # type: Dict[Player, Set[Piece]]
 
     def __contains__(self, item):
-        # type: (CartesianPoint) -> bool
-        return CartesianPoint.zero(len(item)) <= item < self.shape
+        # type: (Point) -> bool
+        return Point.zero(len(item)) <= item < self.shape
 
     def _assert_on_board(self, coordinates):
-        # type: (CartesianPoint) -> None
+        # type: (Point) -> None
         if coordinates not in self:
             raise IndexError('{} not on board'.format(coordinates))
 
     def __getitem__(self, item):
-        # type: (CartesianPoint) -> Piece
+        # type: (Point) -> Piece
         self._assert_on_board(item)
         # noinspection PyTypeChecker
         return reduce(lambda matrix, index: matrix[index], item, self.board)
 
     def __setitem__(self, key, value):
-        # type: (CartesianPoint, Piece) -> None
+        # type: (Point, Piece) -> None
         self._assert_on_board(key)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = value
 
     def __delitem__(self, key):
-        # type: (CartesianPoint) -> None
+        # type: (Point) -> None
         self._assert_on_board(key)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = None
@@ -118,3 +122,23 @@ class CartesianBoard:
                 del self[mutation.point]
             if mutation.op == Operation.PLACE:
                 self[mutation.point] = mutation.payload
+
+    def __str__(self):
+        strings = []
+
+        # Board portion (2D cross-section at a time)
+        for sub_board in iterate_submatrices(self.shape[:-2], self.board):
+            strings.append(self._print_2d(sub_board))
+            strings.append('\n')
+
+        # Jail portion
+        for player, jail in self.jail.items():
+            strings.append("{}'s captures: {}".format(player.name, ', '.join(map(str, jail))))
+
+        return ''.join(strings)
+
+    @staticmethod
+    def _print_2d(sub_board):
+        # Override this if your chess variant needs to
+        return '\n'.join(
+            ''.join(map(lambda square: str(square) if square else ' ', row)) for row in sub_board)

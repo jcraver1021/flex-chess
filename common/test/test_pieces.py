@@ -15,8 +15,8 @@
 from itertools import repeat
 from nose.tools import assert_equal, assert_in, assert_is_none
 
-from common.board import CartesianBoard, Piece
-from common.coordinates import CartesianPoint
+from common.board import Board, Piece
+from common.coordinates import Point
 from common.piecemeal import get_repeated_points, direct_move
 from common.player import Player
 
@@ -24,16 +24,17 @@ from common.player import Player
 BOARD_DIMS = (5, 5)
 
 
-class TestCartesianBoards:
+class TestBoards:
     """Test board properties on a small board"""
     def __init__(self):
         self.players = [Player(color) for color in ['Red', 'Blue']]
 
     def test_direct_move(self):
-        board = CartesianBoard(BOARD_DIMS)
+        """Test that sequences can move pieces"""
+        board = Board(BOARD_DIMS)
         piece = Piece(self.players[0])
-        origin = CartesianPoint(0, 0)
-        destination = CartesianPoint(4, 4)
+        origin = Point(0, 0)
+        destination = Point(4, 4)
         board[origin] = piece
         yield assert_equal, board[origin], piece
         yield assert_is_none, board[destination]
@@ -42,11 +43,12 @@ class TestCartesianBoards:
         yield assert_is_none, board[origin]
 
     def test_direct_capture(self):
-        board = CartesianBoard(BOARD_DIMS)
+        """Test that direct capture mutates state appropriately"""
+        board = Board(BOARD_DIMS)
         piece = Piece(self.players[0])
         victim = Piece(self.players[1])
-        origin = CartesianPoint(0, 0)
-        destination = CartesianPoint(4, 4)
+        origin = Point(0, 0)
+        destination = Point(4, 4)
         board[origin] = piece
         board[destination] = victim
         yield assert_equal, board[origin], piece
@@ -60,9 +62,11 @@ class TestCartesianBoards:
         yield assert_in, victim, board.jail[self.players[0]]
         yield assert_equal, len(board.jail[self.players[1]]), 0
 
-    def test_repeated_points(self):
-        board = CartesianBoard(BOARD_DIMS)
-        origin = CartesianPoint(0, 0)
-        r = repeat(CartesianPoint(1, 2))
-        for x, y in zip(get_repeated_points(board, origin, r), [CartesianPoint(1, 2), CartesianPoint(2, 4)]):
-            yield assert_equal, x, y
+def test_repeated_points():
+    """Test that point repeater returns expected results"""
+    board = Board(BOARD_DIMS)
+    origin = Point(0, 0)
+    repeater = repeat(Point(1, 2))
+    for actual_point, expected_point in zip(get_repeated_points(board, origin, repeater),
+                                            [Point(1, 2), Point(2, 4)]):
+        yield assert_equal, actual_point, expected_point

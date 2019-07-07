@@ -16,15 +16,15 @@ from itertools import product
 
 from nose.tools import assert_equal, assert_in, assert_is_none, assert_raises
 
-from common.board import CartesianBoard, Operation, Mutation, Piece
-from common.coordinates import CartesianPoint
+from common.board import Board, Operation, Mutation, Piece
+from common.coordinates import Point
 from common.player import Player
 
 SMALL_BOARD = (3, 3)
 HIGH_D_BOARD = (1, 2, 3, 4)
 
 
-class TestCartesianBoards:
+class TestBoards:
     """Test board properties on a small board"""
     def __init__(self):
         self.board_scans = [[range(i) for i in SMALL_BOARD], [range(i) for i in HIGH_D_BOARD]]
@@ -33,26 +33,26 @@ class TestCartesianBoards:
     @classmethod
     def setup_class(cls):
         """Set up the board we will use in these tests"""
-        cls.boards = [CartesianBoard(SMALL_BOARD), CartesianBoard(HIGH_D_BOARD)]
+        cls.boards = [Board(SMALL_BOARD), Board(HIGH_D_BOARD)]
 
     def test_get_empty(self):
         """Test that all get operations on an empty board return None"""
         for board, board_scan in zip(self.boards, self.board_scans):
             for index in product(*board_scan):
-                yield assert_is_none, board[CartesianPoint(*index)]
+                yield assert_is_none, board[Point(*index)]
 
     def test_contains(self):
         """Test the contains operator"""
         point_sets = [
             [
-                (CartesianPoint(-1, 0), False),
-                (CartesianPoint(1, 1), True),
-                (CartesianPoint(*SMALL_BOARD), False)
+                (Point(-1, 0), False),
+                (Point(1, 1), True),
+                (Point(*SMALL_BOARD), False)
             ],
             [
-                (CartesianPoint(-1, 0, 0, 0), False),
-                (CartesianPoint(0, 1, 1, 1), True),
-                (CartesianPoint(*HIGH_D_BOARD), False)
+                (Point(-1, 0, 0, 0), False),
+                (Point(0, 1, 1, 1), True),
+                (Point(*HIGH_D_BOARD), False)
             ]
         ]
         for board, point_set in zip(self.boards, point_sets):
@@ -61,21 +61,21 @@ class TestCartesianBoards:
 
     def test_oob(self):
         """Testing that accessing a point off the board causes an exception"""
-        yield assert_raises, IndexError, self.boards[0].__getitem__, CartesianPoint(-1, -1)
-        yield assert_raises, IndexError, self.boards[0].__getitem__, CartesianPoint(*SMALL_BOARD)
-        yield assert_raises, IndexError, self.boards[1].__getitem__, CartesianPoint(-1, -1, -1, -1)
-        yield assert_raises, IndexError, self.boards[1].__getitem__, CartesianPoint(*HIGH_D_BOARD)
+        yield assert_raises, IndexError, self.boards[0].__getitem__, Point(-1, -1)
+        yield assert_raises, IndexError, self.boards[0].__getitem__, Point(*SMALL_BOARD)
+        yield assert_raises, IndexError, self.boards[1].__getitem__, Point(-1, -1, -1, -1)
+        yield assert_raises, IndexError, self.boards[1].__getitem__, Point(*HIGH_D_BOARD)
 
     def test_set_object(self):
         """Test placing and removing an object"""
         piece = Piece(self.players[0])
-        points = [CartesianPoint(1, 1), CartesianPoint(0, 1, 0, 1)]
+        points = [Point(1, 1), Point(0, 1, 0, 1)]
         for board, point in zip(self.boards, points):
             board[point] = piece
             yield assert_equal, board[point], piece
             board[point] = None
             yield assert_is_none, board[point]
-            zero_point = CartesianPoint.zero(len(point))
+            zero_point = Point.zero(len(point))
             board[zero_point] = piece
             yield assert_equal, board[zero_point], piece
             del board[zero_point]
@@ -84,8 +84,8 @@ class TestCartesianBoards:
     def test_mutations(self):
         """Test executing a sequence of mutations"""
         point_sets = [
-            [CartesianPoint(0, 0), CartesianPoint(0, 1), CartesianPoint(1, 1)],
-            [CartesianPoint(0, 1, 0, 1), CartesianPoint(0, 0, 1, 2), CartesianPoint(0, 1, 2, 3)]
+            [Point(0, 0), Point(0, 1), Point(1, 1)],
+            [Point(0, 1, 0, 1), Point(0, 0, 1, 2), Point(0, 1, 2, 3)]
         ]
         pieces = [Piece(self.players[0]) for _ in range(2)]
         for points, board in zip(point_sets, self.boards):
@@ -110,8 +110,8 @@ class TestCartesianBoards:
     def test_invalid_mutation(self):
         """Test that moving a piece off the board fails"""
         point_sets = [
-            [CartesianPoint(0, 0), CartesianPoint(-1, -1)],
-            [CartesianPoint(0, 0, 0, 0), CartesianPoint(-1, -1, -1, -1)]
+            [Point(0, 0), Point(-1, -1)],
+            [Point(0, 0, 0, 0), Point(-1, -1, -1, -1)]
         ]
         piece = Piece(self.players[0])
         for points, board in zip(point_sets, self.boards):
@@ -127,7 +127,7 @@ class TestCartesianBoards:
         """Tests that capturing a piece puts it into jail"""
         piece1 = Piece(self.players[0])
         piece2 = Piece(self.players[1])
-        points = [CartesianPoint.zero(2), CartesianPoint.zero(4)]
+        points = [Point.zero(2), Point.zero(4)]
         for point, board in zip(points, self.boards):
             yield assert_equal, len(board.jail[self.players[0]]), 0
             yield assert_equal, len(board.jail[self.players[1]]), 0
@@ -142,7 +142,7 @@ class TestCartesianBoards:
         """Tests that capturing a piece with another piece puts it into jail"""
         piece1 = Piece(self.players[0])
         piece2 = Piece(self.players[1])
-        points = [CartesianPoint.zero(2), CartesianPoint.zero(4)]
+        points = [Point.zero(2), Point.zero(4)]
         for point, board in zip(points, self.boards):
             yield assert_equal, len(board.jail[self.players[0]]), 0
             yield assert_equal, len(board.jail[self.players[1]]), 0
