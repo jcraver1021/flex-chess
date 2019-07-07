@@ -16,9 +16,9 @@ from functools import reduce
 from itertools import product
 from typing import Any, Iterable, List, Tuple
 
-from nose.tools import assert_raises
+from nose.tools import assert_equal, assert_raises
 
-from common.tools import make_list_matrix
+from common.tools import iterate_submatrices, make_list_matrix
 
 # Test parameters
 TEST_VALUE = 1337  # type: int
@@ -52,3 +52,12 @@ def test_list_matrix_out_of_bounds():
     """Test that list matrix cannot access addresses beyond its size"""
     lol = make_list_matrix(DIMENSIONS)
     assert_raises(IndexError, list_matrix_get, lol, DIMENSIONS)
+
+
+def test_iterate_submatrices():
+    """Test the ability to iterate over layers of the matrix"""
+    matrix = make_list_matrix(DIMENSIONS, 1)
+    for submatrix in iterate_submatrices(DIMENSIONS[:2], matrix):
+        assert_equal(submatrix, [[1, 1, 1, 1]])
+    for submatrix in iterate_submatrices(DIMENSIONS[:3], matrix):
+        assert_equal(submatrix, [1, 1, 1, 1])

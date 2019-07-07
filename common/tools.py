@@ -12,6 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 """General tools used across FlexChess"""
+from functools import reduce
+from itertools import product
 from typing import Any, List, Optional, Tuple
 
 
@@ -25,3 +27,13 @@ def make_list_matrix(shape, default=None):
         return [_list_matrix_helper(index + 1) for _ in range(shape[index])]
 
     return _list_matrix_helper(0)
+
+
+def iterate_submatrices(bounds, matrix):
+    # type: (Tuple, List[Any]) -> List[Any]
+    """Iterate across the lowest layers of the matrix
+
+    For example, if the final two dimensions are omitted,
+    this function will generate every 2D layer"""
+    for sub_index in product(*[range(b) for b in bounds]):
+        yield reduce(lambda m, i: m[i], sub_index, matrix)
