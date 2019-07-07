@@ -45,7 +45,7 @@ def test_list_matrix():
         generators.append(range(i))
         lol = make_list_matrix(maxes, TEST_VALUE)
         for index in product(*generators):
-            yield check_get, lol, index
+            check_get(lol, index)
 
 
 def test_list_matrix_out_of_bounds():
