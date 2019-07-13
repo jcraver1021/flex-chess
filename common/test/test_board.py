@@ -69,17 +69,22 @@ class TestBoards:
     def test_set_object(self):
         """Test placing and removing an object"""
         piece = Piece(self.players[0])
+        piece2 = Piece(self.players[0])
         points = [Point(1, 1), Point(0, 1, 0, 1)]
         for board, point in zip(self.boards, points):
             board[point] = piece
             assert_equal(board[point], piece)
-            board[point] = None
-            assert_is_none(board[point])
+            assert_equal(piece.board, board)
+            assert_equal(piece.coordinates, point)
             zero_point = Point.zero(len(point))
-            board[zero_point] = piece
-            assert_equal(board[zero_point], piece)
+            board[zero_point] = piece2
+            assert_equal(board[zero_point], piece2)
+            assert_equal(piece2.board, board)
+            assert_equal(piece2.coordinates, zero_point)
             del board[zero_point]
             assert_is_none(board[zero_point])
+            assert_equal(piece2.board, board)
+            assert_is_none(piece2.coordinates)
 
     def test_mutations(self):
         """Test executing a sequence of mutations"""

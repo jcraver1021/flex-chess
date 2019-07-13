@@ -34,6 +34,8 @@ class Piece:
         self.player = player
         self.token = token
         self.move_generators = move_generators or []
+        self.board = None
+        self.coordinates = None
 
     def get_moves(self, board, point):
         # type: (Board, Point) -> List[List[Mutation]]
@@ -41,6 +43,7 @@ class Piece:
         moves = []
         for generator in self.move_generators:
             for sequence in generator(board, point):
+                # It is incumbent on the board to say if it has been put into an illegal state
                 try:
                     board_copy = deepcopy(board)
                     board_copy.apply(sequence)
@@ -103,14 +106,27 @@ class Board:
     def __setitem__(self, key, value):
         # type: (Point, Piece) -> None
         self._assert_on_board(key)
+        piece = self[key]
+        if piece:
+            self._update_piece_location(piece, None)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = value
+        if value:
+            self._update_piece_location(value, key)
 
     def __delitem__(self, key):
         # type: (Point) -> None
         self._assert_on_board(key)
+        piece = self[key]
+        if piece:
+            self._update_piece_location(piece, None)
         final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
         final_column[key[-1]] = None
+
+    def _update_piece_location(self, piece, place):
+        # type: (Piece, Point) -> None
+        piece.board = self
+        piece.coordinates = place
 
     def apply(self, sequence):
         # type: (Iterable[Mutation]) -> None
