@@ -15,7 +15,7 @@
 from itertools import repeat, zip_longest
 from nose.tools import assert_equal, assert_in, assert_is_none
 
-from common.board import Board, Piece
+from common.object import Board, Piece
 from common.coordinates import Point
 from common.piecemeal import get_repeated_points, direct_move
 from common.player import Player

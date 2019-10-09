@@ -14,7 +14,7 @@
 """Module for coordinates to address points on a board"""
 from typing import Any, Generator, List
 
-from common.board import Board, Mutation, Operation
+from common.object import Board, Mutation, Operation
 from common.coordinates import Point
 
 
