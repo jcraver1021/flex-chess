@@ -18,9 +18,8 @@ from enum import Enum
 from functools import reduce
 from typing import Callable, Dict, Generator, Iterable, List, NamedTuple, Optional, Set, Tuple
 
-from common.coordinates import Point
 from common.player import Player
-from common.tools import iterate_submatrices, make_list_matrix
+from common.common import iterate_submatrices, make_list_matrix, Point
 
 
 class IllegalBoardState(Exception):

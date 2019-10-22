@@ -17,7 +17,7 @@ from itertools import product
 from nose.tools import assert_equal, assert_in, assert_is_none, assert_raises
 
 from common.object import Board, Operation, Mutation, Piece
-from common.coordinates import Point
+from common.common import Point
 from common.player import Player
 
 SMALL_BOARD = (3, 3)

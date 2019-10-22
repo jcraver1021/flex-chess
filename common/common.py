@@ -11,8 +11,32 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-"""Module for coordinates to address points on a board"""
-from typing import Any, Iterable
+"""General-purpose objects used across FlexChess."""
+from functools import reduce
+from itertools import product
+from typing import Any, List, Optional, Tuple
+
+
+def make_list_matrix(shape, default=None):
+    # type: (Tuple, Optional[Any]) -> List[Any]
+    """Make a matrix of embedded lists."""
+    def _list_matrix_helper(index):
+        # type: (int) -> List[Any]
+        if index + 1 == len(shape):
+            return [default for _ in range(shape[index])]
+        return [_list_matrix_helper(index + 1) for _ in range(shape[index])]
+
+    return _list_matrix_helper(0)
+
+
+def iterate_submatrices(bounds, matrix):
+    # type: (Tuple, List[Any]) -> List[Any]
+    """Iterate across the lowest layers of the matrix.
+
+    For example, if the final two dimensions are omitted,
+    this function will generate every 2D layer"""
+    for sub_index in product(*[range(b) for b in bounds]):
+        yield reduce(lambda m, i: m[i], sub_index, matrix)
 
 
 class Point(tuple):
@@ -23,9 +47,9 @@ class Point(tuple):
         """Construct a zero point in the given dimension.
 
         Args:
-            dimensions (int): dimension of the point
+            dimensions (int): Dimension of the point.
         Return:
-            A zero point in the given dimension
+            A zero point in the given dimension.
         """
         return Point(*tuple(0 for _ in range(dimensions)))
 
@@ -38,9 +62,9 @@ class Point(tuple):
         The dimension of the point will be equal to the number of components given.
 
         Args:
-            *x: components of the point
+            *x: Components of the point
         Return:
-            The point described by the input
+            The point described by the input.
         """
         return tuple.__new__(Point, x)
 
@@ -54,10 +78,10 @@ class Point(tuple):
         """Add two points.
 
         Args:
-            other: another Point
+            other: Another Point.
         Return:
             A Point, where each component is the sum of that component
-            in the first and second Points
+            in the first and second Points.
         """
         self._check_size(other)
         return Point(*tuple(x + y for x, y in zip(self, other)))
@@ -67,13 +91,13 @@ class Point(tuple):
         """Test if each component is less than or equal the corresponding component in the other.
 
         Note this constitutes a partial ordering, as a <= b and b <= a may both be false
-        for certain Points
+        for certain pairs of Points.
 
         Args:
-            other: another Point
+            other: Another Point.
         Return:
             True iff each component of the first is less than the corresponding
-            component of the second
+            component of the second.
         """
         self._check_size(other)
         return all(map(lambda pair: pair[0] <= pair[1], zip(self, other)))
@@ -83,13 +107,13 @@ class Point(tuple):
         """Test if each component is less than the corresponding component in the other point.
 
         Note this constitutes a partial ordering, as a < b and b < a may both be false
-        for certain Points
+        for certain pairs of Points.
 
         Args:
-            other: another Point
+            other: Another Point.
         Return:
             True iff each component of the first is less than the corresponding
-            component of the second
+            component of the second.
         """
         self._check_size(other)
         return all(map(lambda pair: pair[0] < pair[1], zip(self, other)))

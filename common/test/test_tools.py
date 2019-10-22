@@ -18,7 +18,7 @@ from typing import Any, Iterable, List, Tuple
 
 from nose.tools import assert_equal, assert_raises
 
-from common.tools import iterate_submatrices, make_list_matrix
+from common.common import iterate_submatrices, make_list_matrix
 
 # Test parameters
 TEST_VALUE = 1337  # type: int

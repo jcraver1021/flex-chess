@@ -15,7 +15,7 @@
 from typing import Any, Generator, List
 
 from common.object import Board, Mutation, Operation
-from common.coordinates import Point
+from common.common import Point
 
 
 def direct_move(board, origin, destination):

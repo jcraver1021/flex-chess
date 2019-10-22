@@ -14,7 +14,7 @@
 """Tests for the coordinate module"""
 from nose.tools import assert_equal, assert_false, assert_true
 
-from common.coordinates import Point
+from common.common import Point
 
 
 def test_equality():
