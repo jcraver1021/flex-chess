@@ -14,14 +14,14 @@
 """General-purpose objects used across FlexChess."""
 from functools import reduce
 from itertools import product
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Iterable, Optional, Tuple
 
 
-def make_list_matrix(shape, default=None):
-    # type: (Tuple, Optional[Any]) -> List[Any]
+def make_list_matrix(shape,
+                     default: Optional[Any]=None
+                     ) -> List[Any]:
     """Make a matrix of embedded lists."""
-    def _list_matrix_helper(index):
-        # type: (int) -> List[Any]
+    def _list_matrix_helper(index: int) -> List[Any]:
         if index + 1 == len(shape):
             return [default for _ in range(shape[index])]
         return [_list_matrix_helper(index + 1) for _ in range(shape[index])]
@@ -29,8 +29,7 @@ def make_list_matrix(shape, default=None):
     return _list_matrix_helper(0)
 
 
-def iterate_submatrices(bounds, matrix):
-    # type: (Tuple, List[Any]) -> List[Any]
+def iterate_submatrices(bounds: Tuple, matrix: List[Any]) -> List[Any]:
     """Iterate across the lowest layers of the matrix.
 
     For example, if the final two dimensions are omitted,
@@ -42,8 +41,7 @@ def iterate_submatrices(bounds, matrix):
 class Point(tuple):
     """A point on a cartesian plane of n-dimensions."""
     @classmethod
-    def zero(cls, dimensions):
-        # type: (int) -> Point
+    def zero(cls, dimensions: int) -> 'Point':
         """Construct a zero point in the given dimension.
 
         Args:
@@ -53,8 +51,7 @@ class Point(tuple):
         """
         return Point(*tuple(0 for _ in range(dimensions)))
 
-    def __new__(cls, *x):
-        # type: (type, Iterable[Any]) -> Point
+    def __new__(cls, *x: Iterable[Any]) -> 'Point':
         """Construct a point with the given values as components.
 
         Roughly speaking, a Point is similar to a tuple of the same values.
@@ -68,13 +65,11 @@ class Point(tuple):
         """
         return tuple.__new__(Point, x)
 
-    def _check_size(self, other):
-        # type: (Point) -> None
+    def _check_size(self, other: 'Point'):
         if len(self) != len(other):
             raise ValueError('Dimensions do not match ({}, {})'.format(len(self), len(other)))
 
-    def __add__(self, other):
-        # type: (Point) -> Point
+    def __add__(self, other: 'Point') -> 'Point':
         """Add two points.
 
         Args:
@@ -86,8 +81,7 @@ class Point(tuple):
         self._check_size(other)
         return Point(*tuple(x + y for x, y in zip(self, other)))
 
-    def __le__(self, other):
-        # type: (Point) -> bool
+    def __le__(self, other: 'Point') -> bool:
         """Test if each component is less than or equal the corresponding component in the other.
 
         Note this constitutes a partial ordering, as a <= b and b <= a may both be false
@@ -102,8 +96,7 @@ class Point(tuple):
         self._check_size(other)
         return all(map(lambda pair: pair[0] <= pair[1], zip(self, other)))
 
-    def __lt__(self, other):
-        # type: (Point) -> bool
+    def __lt__(self, other: 'Point') -> bool:
         """Test if each component is less than the corresponding component in the other point.
 
         Note this constitutes a partial ordering, as a < b and b < a may both be false
