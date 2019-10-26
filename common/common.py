@@ -13,8 +13,8 @@
 #   limitations under the License.
 """General-purpose objects used across FlexChess."""
 from functools import reduce
-from itertools import product
-from typing import Any, List, Iterable, Optional, Tuple
+from itertools import islice, product, repeat
+from typing import Any, List, Generator, Iterable, Optional, Tuple
 
 
 def make_list_matrix(shape,
@@ -33,7 +33,7 @@ def iterate_submatrices(bounds: Tuple, matrix: List[Any]) -> List[Any]:
     """Iterate across the lowest layers of the matrix.
 
     For example, if the final two dimensions are omitted,
-    this function will generate every 2D layer"""
+    this function will generate every 2D layer."""
     for sub_index in product(*[range(b) for b in bounds]):
         yield reduce(lambda m, i: m[i], sub_index, matrix)
 
@@ -51,7 +51,7 @@ class Point(tuple):
         """
         return Point(*tuple(0 for _ in range(dimensions)))
 
-    def __new__(cls, *x: Iterable[Any]) -> 'Point':
+    def __new__(cls, *x: int) -> 'Point':
         """Construct a point with the given values as components.
 
         Roughly speaking, a Point is similar to a tuple of the same values.
@@ -110,3 +110,34 @@ class Point(tuple):
         """
         self._check_size(other)
         return all(map(lambda pair: pair[0] < pair[1], zip(self, other)))
+
+
+class Tensor:
+    def __init__(self, dimensions: Point,
+                 source: Optional[Iterable[int]] = None,
+                 default: Any = None):
+        self.shape = dimensions
+        self.dim = len(dimensions)
+        self._size = reduce(lambda x, y: x * y, dimensions)
+        source = source or repeat(default, self._size)
+        self._contents = [element for element in islice(source, 0, self._size)]
+
+    def _index(self, coordinates: Point):
+        if not Point.zero(self.dim) <= coordinates < self.shape:
+            raise IndexError('Invalid coordinates {} for dimensions {}'.format(coordinates, self.shape))
+
+        index, _ = reduce(
+            lambda x, y: (x[1] * y[0] + x[0], x[1] * y[1]),
+            reversed(list(zip(coordinates, self.shape)))
+        )
+
+        return index
+
+    def __getitem__(self, item):
+        return self._contents[self._index(item)]
+
+    def __setitem__(self, key, value):
+        self._contents[self._index(key)] = value
+
+    def __iter__(self):
+        return iter(self._contents)
