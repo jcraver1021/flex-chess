@@ -13,29 +13,8 @@
 #   limitations under the License.
 """General-purpose objects used across FlexChess."""
 from functools import reduce
-from itertools import islice, product, repeat
-from typing import Any, List, Generator, Iterable, Optional, Tuple
-
-
-def make_list_matrix(shape,
-                     default: Optional[Any]=None
-                     ) -> List[Any]:
-    """Make a matrix of embedded lists."""
-    def _list_matrix_helper(index: int) -> List[Any]:
-        if index + 1 == len(shape):
-            return [default for _ in range(shape[index])]
-        return [_list_matrix_helper(index + 1) for _ in range(shape[index])]
-
-    return _list_matrix_helper(0)
-
-
-def iterate_submatrices(bounds: Tuple, matrix: List[Any]) -> List[Any]:
-    """Iterate across the lowest layers of the matrix.
-
-    For example, if the final two dimensions are omitted,
-    this function will generate every 2D layer."""
-    for sub_index in product(*[range(b) for b in bounds]):
-        yield reduce(lambda m, i: m[i], sub_index, matrix)
+from itertools import islice, repeat
+from typing import Any, Iterable, Optional
 
 
 class Point(tuple):
@@ -122,8 +101,11 @@ class Tensor:
         source = source or repeat(default, self._size)
         self._contents = [element for element in islice(source, 0, self._size)]
 
+    def __contains__(self, item):
+        return Point.zero(self.dim) <= item < self.shape
+
     def _index(self, coordinates: Point):
-        if not Point.zero(self.dim) <= coordinates < self.shape:
+        if coordinates not in self:
             raise IndexError('Invalid coordinates {} for dimensions {}'.format(coordinates, self.shape))
 
         index, _ = reduce(

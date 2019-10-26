@@ -15,11 +15,11 @@
 from collections import defaultdict
 from copy import deepcopy
 from enum import Enum
-from functools import reduce
-from typing import Callable, Dict, Generator, Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import (Callable, Dict, Generator, Iterable, List, NamedTuple,
+                    Optional, Set, Tuple)
 
+from common.common import Point, Tensor
 from common.player import Player
-from common.common import iterate_submatrices, make_list_matrix, Point
 
 
 class IllegalBoardState(Exception):
@@ -84,46 +84,35 @@ class Board:
     def __init__(self, shape):
         # type: (Tuple) -> None
         self.shape = Point(*shape)  # type: Point
-        self.board = make_list_matrix(shape)
+        self.board = Tensor(self.shape)  # type: Tensor
         self.jail = defaultdict(set)  # type: Dict[Player, Set[Piece]]
 
     def __contains__(self, item):
-        # type: (Point) -> bool
-        return Point.zero(len(item)) <= item < self.shape
-
-    def _assert_on_board(self, coordinates):
-        # type: (Point) -> None
-        if coordinates not in self:
-            raise IndexError('{} not on board'.format(coordinates))
+        # type: (Point) - > bool
+        return item in self.board
 
     def __getitem__(self, item):
         # type: (Point) -> Piece
-        self._assert_on_board(item)
-        # noinspection PyTypeChecker
-        return reduce(lambda matrix, index: matrix[index], item, self.board)
+        return self.board[item]
 
     def __setitem__(self, key, value):
         # type: (Point, Piece) -> None
-        self._assert_on_board(key)
         piece = self[key]
         if piece:
             self._update_piece_location(piece, None)
-        final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
-        final_column[key[-1]] = value
+        self.board[key] = value
         if value:
             self._update_piece_location(value, key)
 
     def __delitem__(self, key):
         # type: (Point) -> None
-        self._assert_on_board(key)
         piece = self[key]
         if piece:
             self._update_piece_location(piece, None)
-        final_column = reduce(lambda matrix, index: matrix[index], key[:-1], self.board)
-        final_column[key[-1]] = None
+        self.board[key] = None
 
     def _update_piece_location(self, piece, place):
-        # type: (Piece, Point) -> None
+        # type: (Piece, Optional[Point]) -> None
         piece.board = self
         piece.coordinates = place
 
@@ -137,23 +126,3 @@ class Board:
                 del self[mutation.point]
             if mutation.op == Operation.PLACE:
                 self[mutation.point] = mutation.payload
-
-    def __str__(self):
-        strings = []
-
-        # Board portion (2D cross-section at a time)
-        for sub_board in iterate_submatrices(self.shape[:-2], self.board):
-            strings.append(self._print_2d(sub_board))
-            strings.append('\n')
-
-        # Jail portion
-        for player, jail in self.jail.items():
-            strings.append("{}'s captures: {}".format(player.name, ', '.join(map(str, jail))))
-
-        return ''.join(strings)
-
-    @staticmethod
-    def _print_2d(sub_board):
-        # Override this if your chess variant needs to
-        return '\n'.join(
-            ''.join(map(lambda square: str(square) if square else ' ', row)) for row in sub_board)
