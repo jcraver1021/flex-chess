@@ -27,31 +27,42 @@ class IllegalBoardState(Exception):
 
 
 class Piece:
-    """A piece belonging to a player"""
-    def __init__(self, player, token='X', move_generators=None):
-        # type: (Player, str, Optional[Callable[[Board, Point], Generator]]) -> None
+    """A piece belonging to a player."""
+    def __init__(self,
+                 player: 'Player',
+                 token: str = 'X',
+                 move_generators: Generator['Mutation', None, None] = None
+                 ) -> None:
         self.player = player
         self.token = token
         self.move_generators = move_generators or []
-        self.board = None
-        self.coordinates = None
+        self._board = None
+        self._place = None
 
-    def get_moves(self, board, point):
-        # type: (Board, Point) -> List[List[Mutation]]
-        """Get a list of all legal sequences by this piece from this point"""
+    def find(self) -> Tuple['Board', Point]:
+        """Get the board and the place where this piece is."""
+        return self._board, self._place
+
+    def place(self, board: 'Board', place: Point) -> None:
+        """Place this piece on a board."""
+        self._board = board
+        self._place = place
+
+    def get_moves(self) -> List[List['Mutation']]:
+        """Get a list of all legal sequences by this piece from this point."""
         moves = []
         for generator in self.move_generators:
-            for sequence in generator(board, point):
+            for sequence in generator(self._board, self._place):
                 # It is incumbent on the board to say if it has been put into an illegal state
                 try:
-                    board_copy = deepcopy(board)
+                    board_copy = deepcopy(self._board)
                     board_copy.apply(sequence)
                     moves.append(sequence)
                 except IllegalBoardState:
                     pass
         return moves
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.token
 
 
@@ -113,8 +124,7 @@ class Board:
 
     def _update_piece_location(self, piece, place):
         # type: (Piece, Optional[Point]) -> None
-        piece.board = self
-        piece.coordinates = place
+        piece.place(self, place)
 
     def apply(self, sequence):
         # type: (Iterable[Mutation]) -> None

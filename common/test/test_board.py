@@ -74,17 +74,14 @@ class TestBoards:
         for board, point in zip(self.boards, points):
             board[point] = piece
             assert_equal(board[point], piece)
-            assert_equal(piece.board, board)
-            assert_equal(piece.coordinates, point)
+            assert_equal((board, point), piece.find())
             zero_point = Point.zero(len(point))
             board[zero_point] = piece2
             assert_equal(board[zero_point], piece2)
-            assert_equal(piece2.board, board)
-            assert_equal(piece2.coordinates, zero_point)
+            assert_equal((board, zero_point), piece2.find())
             del board[zero_point]
             assert_is_none(board[zero_point])
-            assert_equal(piece2.board, board)
-            assert_is_none(piece2.coordinates)
+            assert_equal((board, None), piece2.find())
 
     def test_mutations(self):
         """Test executing a sequence of mutations"""
