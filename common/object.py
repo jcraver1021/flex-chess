@@ -15,8 +15,8 @@
 from collections import defaultdict
 from copy import deepcopy
 from enum import Enum
-from typing import (Callable, Dict, Generator, Iterable, List, NamedTuple,
-                    Optional, Set, Tuple)
+from typing import (
+    Dict, Generator, Iterable, List, NamedTuple, Optional, Set, Tuple)
 
 from common.common import Point, Tensor
 from common.player import Player
@@ -92,42 +92,35 @@ class Mutation(NamedTuple):
 class Board:
     """A game board with cartesian coordinates. Point are finite and at least 0."""
 
-    def __init__(self, shape):
-        # type: (Tuple) -> None
-        self.shape = Point(*shape)  # type: Point
-        self.board = Tensor(self.shape)  # type: Tensor
-        self.jail = defaultdict(set)  # type: Dict[Player, Set[Piece]]
+    def __init__(self, shape: Tuple) -> None:
+        self.shape = Point(*shape)
+        self.board = Tensor(self.shape)
+        self.jail: Dict[Player, Set[Piece]] = defaultdict(set)
 
-    def __contains__(self, item):
-        # type: (Point) - > bool
-        return item in self.board
+    def __contains__(self, point: Point) -> bool:
+        return point in self.board
 
-    def __getitem__(self, item):
-        # type: (Point) -> Piece
-        return self.board[item]
+    def __getitem__(self, point: Point) -> Piece:
+        return self.board[point]
 
-    def __setitem__(self, key, value):
-        # type: (Point, Piece) -> None
-        piece = self[key]
+    def __setitem__(self, point: Point, piece: Optional[Piece]):
+        current_piece = self[point]
+        if current_piece:
+            self._update_piece_location(current_piece, None)
+        self.board[point] = piece
+        if piece:
+            self._update_piece_location(piece, point)
+
+    def __delitem__(self, point: Point) -> None:
+        piece = self[point]
         if piece:
             self._update_piece_location(piece, None)
-        self.board[key] = value
-        if value:
-            self._update_piece_location(value, key)
+        self.board[point] = None
 
-    def __delitem__(self, key):
-        # type: (Point) -> None
-        piece = self[key]
-        if piece:
-            self._update_piece_location(piece, None)
-        self.board[key] = None
-
-    def _update_piece_location(self, piece, place):
-        # type: (Piece, Optional[Point]) -> None
+    def _update_piece_location(self, piece: Piece, place: Optional[Point]):
         piece.place(self, place)
 
-    def apply(self, sequence):
-        # type: (Iterable[Mutation]) -> None
+    def apply(self, sequence: Iterable[Mutation]) -> None:
         """Apply a sequence of mutations to the board"""
         for mutation in sequence:
             if self[mutation.point] and mutation.op in CAPTURE_OPS:
