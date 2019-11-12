@@ -14,143 +14,117 @@
 """Test the board functionality"""
 from itertools import product
 
-from nose.tools import assert_equal, assert_in, assert_is_none, assert_raises
+from nose.tools import assert_equal, assert_is_none
 
-from common.object import Board, Operation, Mutation, Piece
+from common.object import Board, Mutation, Piece
 from common.common import Point
 from common.player import Player
 
-SMALL_BOARD = (3, 3)
-HIGH_D_BOARD = (1, 2, 3, 4)
+SIZE_SMALL = Point(5)
+SIZE_MED = Point(6, 7)
+SIZE_LARGE = Point(3, 5, 7)
+
+
+def mutate_and_check(board: Board, mutation: Mutation):
+    """Test that a mutation produces valid results.
+
+    In particular, the following predicates are tested:
+    * The inversion's target equals the mutation's source
+    * The inversion's source equals the mutation's target
+    * The source point is empty
+    * If a piece was in the target point, it is no longer there, nor thinks it is there
+    * If the target exists, it now contains to_place or whatever was at source
+    * If there was a piece at the source point, it is now at the target point
+
+    Args:
+        board: The board on which to apply the mutation.
+        mutation: The mutation to apply
+    """
+    source_piece = mutation.to_place
+    target_piece = board[mutation.target] if mutation.target else None
+    inversion = board.mutate(mutation)
+
+    # Assert the inversion inverts the mutation.
+    assert_equal((mutation.source, mutation.target), (inversion.target, inversion.source))
+
+    # Assert the piece is no longer at its starting location.
+    if mutation.source:
+        assert_is_none(board[mutation.source])
+
+    # Assert the target was removed.
+    if target_piece:
+        assert_equal((board, None), target_piece.find())
+        assert_equal(target_piece, inversion.to_place)
+
+    # Assert the placement succeeded.
+    if mutation.target:
+        assert_equal(source_piece, board[mutation.target])
+    if source_piece:
+        assert_equal((board, mutation.target), source_piece.find())
 
 
 class TestBoards:
     """Test board properties on a small board"""
-    def __init__(self):
-        self.board_scans = [[range(i) for i in SMALL_BOARD], [range(i) for i in HIGH_D_BOARD]]
-        self.players = [Player(color) for color in ['Red', 'Blue']]
+    def __init__(self) -> None:
+        self.sizes = [SIZE_SMALL, SIZE_MED, SIZE_LARGE]
+        self.ranges = [[range(i) for i in size] for size in self.sizes]
+        self.boards = [Board(size) for size in self.sizes]
+        self.player = Player('Player 1')
 
-    @classmethod
-    def setup_class(cls):
-        """Set up the board we will use in these tests"""
-        cls.boards = [Board(SMALL_BOARD), Board(HIGH_D_BOARD)]
+    def setup(self):
+        """Reinitialize the boards."""
+        self.boards = [Board(size) for size in self.sizes]
 
-    def test_get_empty(self):
-        """Test that all get operations on an empty board return None"""
-        for board, board_scan in zip(self.boards, self.board_scans):
-            for index in product(*board_scan):
-                assert_is_none(board[Point(*index)])
+    def test_place(self):
+        """Test placing a piece at every point."""
+        for coord_range, board in zip(self.ranges, self.boards):
+            for point in product(*coord_range):
+                piece = Piece(self.player)
+                mutation = Mutation(to_place=piece, target=Point(*point))
+                mutate_and_check(board, mutation)
 
-    def test_contains(self):
-        """Test the contains operator"""
-        point_sets = [
-            [
-                (Point(-1, 0), False),
-                (Point(1, 1), True),
-                (Point(*SMALL_BOARD), False)
-            ],
-            [
-                (Point(-1, 0, 0, 0), False),
-                (Point(0, 1, 1, 1), True),
-                (Point(*HIGH_D_BOARD), False)
-            ]
-        ]
-        for board, point_set in zip(self.boards, point_sets):
-            for point, on_board in point_set:
-                assert_equal(point in board, on_board)
+    def test_remove(self):
+        """Test placing and removing a piece at every point."""
+        for coord_range, board in zip(self.ranges, self.boards):
+            for point in product(*coord_range):
+                piece = Piece(self.player)
+                mutate_add = Mutation(to_place=piece, target=Point(*point))
+                mutate_and_check(board, mutate_add)
+                mutate_remove = Mutation(target=Point(*point))
+                mutate_and_check(board, mutate_remove)
 
-    def test_oob(self):
-        """Testing that accessing a point off the board causes an exception"""
-        assert_raises(IndexError, self.boards[0].__getitem__, Point(-1, -1))
-        assert_raises(IndexError, self.boards[0].__getitem__, Point(*SMALL_BOARD))
-        assert_raises(IndexError, self.boards[1].__getitem__, Point(-1, -1, -1, -1))
-        assert_raises(IndexError, self.boards[1].__getitem__, Point(*HIGH_D_BOARD))
+    def test_capture(self):
+        """Test placing a piece over each point."""
+        for coord_range, board in zip(self.ranges, self.boards):
+            for point in product(*coord_range):
+                piece_one = Piece(self.player)
+                mutate_add = Mutation(to_place=piece_one, target=Point(*point))
+                mutate_and_check(board, mutate_add)
+                piece_two = Piece(self.player)
+                mutate_capture = Mutation(to_place=piece_two, target=Point(*point))
+                mutate_and_check(board, mutate_capture)
 
-    def test_set_object(self):
-        """Test placing and removing an object"""
-        piece = Piece(self.players[0])
-        piece2 = Piece(self.players[0])
-        points = [Point(1, 1), Point(0, 1, 0, 1)]
-        for board, point in zip(self.boards, points):
-            board[point] = piece
-            assert_equal(board[point], piece)
-            assert_equal((board, point), piece.find())
-            zero_point = Point.zero(len(point))
-            board[zero_point] = piece2
-            assert_equal(board[zero_point], piece2)
-            assert_equal((board, zero_point), piece2.find())
-            del board[zero_point]
-            assert_is_none(board[zero_point])
-            assert_equal((board, None), piece2.find())
+    def test_move(self):
+        """Test placing a piece at the origin and moving it to each point."""
+        for size, coord_range, board in zip(self.sizes, self.ranges, self.boards):
+            zero_point = Point.zero(len(size))
+            for point in product(*coord_range):
+                piece = Piece(self.player)
+                mutate_add = Mutation(to_place=piece, target=zero_point)
+                mutate_and_check(board, mutate_add)
+                mutate_move = Mutation(source=zero_point, target=Point(*point))
+                mutate_and_check(board, mutate_move)
 
-    def test_mutations(self):
-        """Test executing a sequence of mutations"""
-        point_sets = [
-            [Point(0, 0), Point(0, 1), Point(1, 1)],
-            [Point(0, 1, 0, 1), Point(0, 0, 1, 2), Point(0, 1, 2, 3)]
-        ]
-        pieces = [Piece(self.players[0]) for _ in range(2)]
-        for points, board in zip(point_sets, self.boards):
-            # Place the pieces on points 1 and 2
-            board[points[0]] = pieces[0]
-            board[points[1]] = pieces[1]
-            assert_equal(board[points[0]], pieces[0])
-            assert_equal(board[points[1]], pieces[1])
-            assert_is_none(board[points[2]])
-            # Move the pieces to points 2 and 3
-            sequence = [
-                Mutation(Operation.REMOVE, points[0]),
-                Mutation(Operation.REMOVE, points[1]),
-                Mutation(Operation.PLACE, points[1], pieces[0]),
-                Mutation(Operation.PLACE, points[2], pieces[1])
-            ]
-            board.apply(sequence)
-            assert_is_none(board[points[0]])
-            assert_equal(board[points[1]], pieces[0])
-            assert_equal(board[points[2]], pieces[1])
-
-    def test_invalid_mutation(self):
-        """Test that moving a piece off the board fails"""
-        point_sets = [
-            [Point(0, 0), Point(-1, -1)],
-            [Point(0, 0, 0, 0), Point(-1, -1, -1, -1)]
-        ]
-        piece = Piece(self.players[0])
-        for points, board in zip(point_sets, self.boards):
-            board[points[0]] = piece
-            assert_equal(board[points[0]], piece)
-            sequence = [
-                Mutation(Operation.REMOVE, points[0]),
-                Mutation(Operation.PLACE, points[1])
-            ]
-            assert_raises(IndexError, board.apply, sequence)
-
-    def test_capture_no_piece(self):
-        """Tests that capturing a piece puts it into jail"""
-        piece1 = Piece(self.players[0])
-        piece2 = Piece(self.players[1])
-        points = [Point.zero(2), Point.zero(4)]
-        for point, board in zip(points, self.boards):
-            assert_equal(len(board.jail[self.players[0]]), 0)
-            assert_equal(len(board.jail[self.players[1]]), 0)
-            board[point] = piece2
-            board.apply([Mutation(Operation.CAPTURE, point, piece1)])
-            assert_is_none(board[point])
-            assert_in(piece2, board.jail[self.players[0]])
-            assert_equal(len(board.jail[self.players[0]]), 1)
-            assert_equal(len(board.jail[self.players[1]]), 0)
-
-    def test_move_capture(self):
-        """Tests that capturing a piece with another piece puts it into jail"""
-        piece1 = Piece(self.players[0])
-        piece2 = Piece(self.players[1])
-        points = [Point.zero(2), Point.zero(4)]
-        for point, board in zip(points, self.boards):
-            assert_equal(len(board.jail[self.players[0]]), 0)
-            assert_equal(len(board.jail[self.players[1]]), 0)
-            board[point] = piece2
-            board.apply([Mutation(Operation.PLACE, point, piece1)])
-            assert_equal(board[point], piece1)
-            assert_in(piece2, board.jail[self.players[0]])
-            assert_equal(len(board.jail[self.players[0]]), 1)
-            assert_equal(len(board.jail[self.players[1]]), 0)
+    def test_move_and_capture(self):
+        """Test placing a piece at the origin and moving it over each point."""
+        for size, coord_range, board in zip(self.sizes, self.ranges, self.boards):
+            zero_point = Point.zero(len(size))
+            for point in product(*coord_range):
+                piece_one = Piece(self.player)
+                mutate_add = Mutation(to_place=piece_one, target=zero_point)
+                mutate_and_check(board, mutate_add)
+                piece_two = Piece(self.player)
+                mutate_add2 = Mutation(to_place=piece_two, target=Point(*point))
+                mutate_and_check(board, mutate_add2)
+                mutate_move = Mutation(source=zero_point, target=Point(*point))
+                mutate_and_check(board, mutate_move)

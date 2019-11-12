@@ -12,11 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 """Board objects in common use"""
-from collections import defaultdict
 from copy import deepcopy
-from enum import Enum
 from typing import (
-    Dict, Generator, Iterable, List, NamedTuple, Optional, Set, Tuple)
+    Generator, List, NamedTuple, Optional, Tuple)
 
 from common.common import Point, Tensor
 from common.player import Player
@@ -29,7 +27,7 @@ class IllegalBoardState(Exception):
 class Piece:
     """A piece belonging to a player."""
     def __init__(self,
-                 player: 'Player',
+                 player: Player,
                  token: str = 'X',
                  move_generators: Generator['Mutation', None, None] = None
                  ) -> None:
@@ -66,27 +64,12 @@ class Piece:
         return self.token
 
 
-class Operation(Enum):
-    """An operation on the game board
-
-    PLACE: Place a piece on the board. Capture the piece that is currently there (if any).
-    REMOVE: Remove a piece from the board, but do not store it in the jail.
-    CAPTURE: Remove a piece from the board and place it into the jail.
-    """
-    PLACE = 1
-    REMOVE = 2
-    CAPTURE = 3
-
-
-CAPTURE_OPS = {Operation.PLACE, Operation.CAPTURE}
-REMOVE_OPS = {Operation.REMOVE, Operation.CAPTURE}
-
-
 class Mutation(NamedTuple):
-    """A change to the state of the board"""
-    op: Operation
-    point: Point
-    payload: Piece = None
+    """A mutation of the board state."""
+    to_place: Piece = None
+    source: Point = None
+    # TODO: Combine to_place and source into a union type
+    target: Point = None
 
 
 class Board:
@@ -94,38 +77,32 @@ class Board:
 
     def __init__(self, shape: Tuple) -> None:
         self.shape = Point(*shape)
-        self.board = Tensor(self.shape)
-        self.jail: Dict[Player, Set[Piece]] = defaultdict(set)
+        self._board = Tensor(self.shape)
 
-    def __contains__(self, point: Point) -> bool:
-        return point in self.board
+    def __getitem__(self, point) -> Piece:
+        return self._board[point]
 
-    def __getitem__(self, point: Point) -> Piece:
-        return self.board[point]
+    def _place(self, piece: Piece, point: Optional[Point]) -> None:
+        """Update a piece to the new location."""
+        if point:
+            self._board[point] = piece
+        if piece:
+            piece.place(self, point)
 
-    def __setitem__(self, point: Point, piece: Optional[Piece]):
-        current_piece = self[point]
+    def mutate(self, mutation: Mutation) -> Mutation:
+        """Mutate the board state.
+
+        Args:
+            mutation: The mutation to apply to the board.
+        Returns:
+            Mutation that would invert this one.
+            The piece displaced (if any) would be found in the return value's 'to_place' field
+        """
+        current_piece = self[mutation.target]
         if current_piece:
-            self._update_piece_location(current_piece, None)
-        self.board[point] = piece
-        if piece:
-            self._update_piece_location(piece, point)
+            self._place(current_piece, None)
+        if mutation.source:
+            self._board[mutation.source] = None
+        self._place(mutation.to_place, mutation.target)
 
-    def __delitem__(self, point: Point) -> None:
-        piece = self[point]
-        if piece:
-            self._update_piece_location(piece, None)
-        self.board[point] = None
-
-    def _update_piece_location(self, piece: Piece, place: Optional[Point]):
-        piece.place(self, place)
-
-    def apply(self, sequence: Iterable[Mutation]) -> None:
-        """Apply a sequence of mutations to the board"""
-        for mutation in sequence:
-            if self[mutation.point] and mutation.op in CAPTURE_OPS:
-                self.jail[mutation.payload.player].add(self[mutation.point])
-            if mutation.op in REMOVE_OPS:
-                del self[mutation.point]
-            if mutation.op == Operation.PLACE:
-                self[mutation.point] = mutation.payload
+        return Mutation(current_piece, mutation.target, mutation.source)
