@@ -13,8 +13,7 @@
 #   limitations under the License.
 """Board objects in common use"""
 from copy import deepcopy
-from typing import (
-    Generator, List, NamedTuple, Optional, Tuple)
+from typing import Generator, List, NamedTuple, Optional, Tuple, Union
 
 from common.common import Point, Tensor
 from common.player import Player
@@ -66,10 +65,8 @@ class Piece:
 
 class Mutation(NamedTuple):
     """A mutation of the board state."""
-    to_place: Piece = None
-    source: Point = None
-    # TODO: Combine to_place and source into a union type
-    target: Point = None
+    source: Optional[Union[Point, Piece]]
+    target: Point
 
 
 class Board:
@@ -82,27 +79,37 @@ class Board:
     def __getitem__(self, point) -> Piece:
         return self._board[point]
 
-    def _place(self, piece: Piece, point: Optional[Point]) -> None:
-        """Update a piece to the new location."""
+    def _place(self, piece: Optional[Piece], point: Optional[Point]) -> None:
+        """Update a piece to the new location.
+
+        Do nothing if both inputs are None.
+        """
         if point:
             self._board[point] = piece
         if piece:
             piece.place(self, point)
 
-    def mutate(self, mutation: Mutation) -> Mutation:
+    def mutate(self, mutation: Mutation) -> Optional[Piece]:
         """Mutate the board state.
 
         Args:
             mutation: The mutation to apply to the board.
         Returns:
-            Mutation that would invert this one.
-            The piece displaced (if any) would be found in the return value's 'to_place' field
+            The piece displaced by this mutation, or None if no piece was displaced
         """
         current_piece = self[mutation.target]
         if current_piece:
             self._place(current_piece, None)
-        if mutation.source:
-            self._board[mutation.source] = None
-        self._place(mutation.to_place, mutation.target)
 
-        return Mutation(current_piece, mutation.target, mutation.source)
+        new_piece = None
+        if mutation.source:
+            if isinstance(mutation.source, Point):
+                new_piece = self[mutation.source]
+                self._board[mutation.source] = None
+            else:
+                new_piece = mutation.source
+
+        self._place(new_piece, mutation.target)
+
+        # Do not return if no-op move, since this represents capture/removal
+        return current_piece if current_piece != new_piece else None

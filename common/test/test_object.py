@@ -1,5 +1,4 @@
-#   Copyright 2019 James Craver
-#
+#   Copyright 2019 James Craver #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
@@ -12,8 +11,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 """Test the board functionality"""
-from itertools import product
-
 from nose.tools import assert_equal, assert_is_none
 
 from common.object import Board, Mutation, Piece
@@ -29,45 +26,49 @@ def mutate_and_check(board: Board, mutation: Mutation):
     """Test that a mutation produces valid results.
 
     In particular, the following predicates are tested:
-    * The inversion's target equals the mutation's source
-    * The inversion's source equals the mutation's target
-    * The source point is empty
-    * If a piece was in the target point, it is no longer there, nor thinks it is there
-    * If the target exists, it now contains to_place or whatever was at source
-    * If there was a piece at the source point, it is now at the target point
+    * If the source is a point, the source is now empty
+    * If a piece was at the target, it is no longer on the board
+    * The return value is equal to contents of the target point
+    * The source piece is now equal to the contents of the target point
 
     Args:
         board: The board on which to apply the mutation.
         mutation: The mutation to apply
     """
-    source_piece = mutation.to_place
+    if isinstance(mutation.source, Point):
+        source_point = mutation.source
+        source_piece = board[source_point]
+    else:
+        source_point = None
+        source_piece = mutation.source
     target_piece = board[mutation.target] if mutation.target else None
-    inversion = board.mutate(mutation)
+    captured_piece = board.mutate(mutation)
 
-    # Assert the inversion inverts the mutation.
-    assert_equal((mutation.source, mutation.target), (inversion.target, inversion.source))
+    # If the source is a point, assert the source is now empty.
+    if source_point is not None:
+        assert_is_none(board[source_point])
 
-    # Assert the piece is no longer at its starting location.
-    if mutation.source:
-        assert_is_none(board[mutation.source])
-
-    # Assert the target was removed.
-    if target_piece:
+    # If a piece was at the target, assert it is no longer on the board
+    # unless it is equal to the source piece.
+    if target_piece is not None and source_piece != target_piece:
         assert_equal((board, None), target_piece.find())
-        assert_equal(target_piece, inversion.to_place)
 
-    # Assert the placement succeeded.
-    if mutation.target:
-        assert_equal(source_piece, board[mutation.target])
-    if source_piece:
-        assert_equal((board, mutation.target), source_piece.find())
+    # If the source and target pieces are different, assert that the target
+    # piece is equal to the return piece
+    if source_piece != target_piece:
+        assert_equal(target_piece, captured_piece)
+
+    assert_equal(source_piece, board[mutation.target])
+
+
+def _get_point(length: int, value: int):
+    return Point(*(value for _ in range(length)))
 
 
 class TestBoards:
     """Test board properties on a small board"""
     def __init__(self) -> None:
         self.sizes = [SIZE_SMALL, SIZE_MED, SIZE_LARGE]
-        self.ranges = [[range(i) for i in size] for size in self.sizes]
         self.boards = [Board(size) for size in self.sizes]
         self.player = Player('Player 1')
 
@@ -76,55 +77,89 @@ class TestBoards:
         self.boards = [Board(size) for size in self.sizes]
 
     def test_place(self):
-        """Test placing a piece at every point."""
-        for coord_range, board in zip(self.ranges, self.boards):
-            for point in product(*coord_range):
-                piece = Piece(self.player)
-                mutation = Mutation(to_place=piece, target=Point(*point))
-                mutate_and_check(board, mutation)
+        """Test placing a piece at a point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point = Point.zero(len(dims))
+            piece = Piece(self.player)
+            mutation = Mutation(piece, point)
+            mutate_and_check(board, mutation)
+
+    def test_replace(self):
+        """Test placing a piece twice at a point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point = Point.zero(len(dims))
+            piece = Piece(self.player)
+            mutation = Mutation(piece, point)
+            mutate_and_check(board, mutation)
+            mutate_and_check(board, mutation)
+
+    def test_overplace(self):
+        """Test placing two pieces at the same point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point = Point.zero(len(dims))
+            piece_one = Piece(self.player)
+            piece_two = Piece(self.player)
+            mutation_one = Mutation(piece_one, point)
+            mutate_and_check(board, mutation_one)
+            mutation_two = Mutation(piece_two, point)
+            mutate_and_check(board, mutation_two)
 
     def test_remove(self):
-        """Test placing and removing a piece at every point."""
-        for coord_range, board in zip(self.ranges, self.boards):
-            for point in product(*coord_range):
-                piece = Piece(self.player)
-                mutate_add = Mutation(to_place=piece, target=Point(*point))
-                mutate_and_check(board, mutate_add)
-                mutate_remove = Mutation(target=Point(*point))
-                mutate_and_check(board, mutate_remove)
+        """Test placing and removing a piece a point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point = Point.zero(len(dims))
+            piece = Piece(self.player)
+            mutation_add = Mutation(piece, point)
+            mutate_and_check(board, mutation_add)
+            mutation_remove = Mutation(None, point)
+            mutate_and_check(board, mutation_remove)
 
-    def test_capture(self):
-        """Test placing a piece over each point."""
-        for coord_range, board in zip(self.ranges, self.boards):
-            for point in product(*coord_range):
-                piece_one = Piece(self.player)
-                mutate_add = Mutation(to_place=piece_one, target=Point(*point))
-                mutate_and_check(board, mutate_add)
-                piece_two = Piece(self.player)
-                mutate_capture = Mutation(to_place=piece_two, target=Point(*point))
-                mutate_and_check(board, mutate_capture)
+    def test_move_piece(self):
+        """Test moving a piece to a new point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point_one = _get_point(len(dims), 1)
+            point_two = _get_point(len(dims), 2)
+            piece = Piece(self.player)
+            mutation_add = Mutation(piece, point_one)
+            mutate_and_check(board, mutation_add)
+            mutation_move = Mutation(piece, point_two)
+            mutate_and_check(board, mutation_move)
 
-    def test_move(self):
-        """Test placing a piece at the origin and moving it to each point."""
-        for size, coord_range, board in zip(self.sizes, self.ranges, self.boards):
-            zero_point = Point.zero(len(size))
-            for point in product(*coord_range):
-                piece = Piece(self.player)
-                mutate_add = Mutation(to_place=piece, target=zero_point)
-                mutate_and_check(board, mutate_add)
-                mutate_move = Mutation(source=zero_point, target=Point(*point))
-                mutate_and_check(board, mutate_move)
+    def test_move_point(self):
+        """Test moving a piece from one point to a new point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point_one = _get_point(len(dims), 1)
+            point_two = _get_point(len(dims), 2)
+            piece = Piece(self.player)
+            mutation_add = Mutation(piece, point_one)
+            mutate_and_check(board, mutation_add)
+            mutation_move = Mutation(point_one, point_two)
+            mutate_and_check(board, mutation_move)
 
-    def test_move_and_capture(self):
-        """Test placing a piece at the origin and moving it over each point."""
-        for size, coord_range, board in zip(self.sizes, self.ranges, self.boards):
-            zero_point = Point.zero(len(size))
-            for point in product(*coord_range):
-                piece_one = Piece(self.player)
-                mutate_add = Mutation(to_place=piece_one, target=zero_point)
-                mutate_and_check(board, mutate_add)
-                piece_two = Piece(self.player)
-                mutate_add2 = Mutation(to_place=piece_two, target=Point(*point))
-                mutate_and_check(board, mutate_add2)
-                mutate_move = Mutation(source=zero_point, target=Point(*point))
-                mutate_and_check(board, mutate_move)
+    def test_capture_piece(self):
+        """Test capturing a piece with another piece."""
+        for dims, board in zip(self.sizes, self.boards):
+            point_one = _get_point(len(dims), 1)
+            point_two = _get_point(len(dims), 2)
+            piece_one = Piece(self.player)
+            piece_two = Piece(self.player)
+            mutation_one = Mutation(piece_one, point_one)
+            mutation_two = Mutation(piece_two, point_two)
+            mutate_and_check(board, mutation_one)
+            mutate_and_check(board, mutation_two)
+            mutation_move = Mutation(piece_one, point_two)
+            mutate_and_check(board, mutation_move)
+
+    def test_capture_point(self):
+        """Test capturing a piece from another point."""
+        for dims, board in zip(self.sizes, self.boards):
+            point_one = _get_point(len(dims), 1)
+            point_two = _get_point(len(dims), 2)
+            piece_one = Piece(self.player)
+            piece_two = Piece(self.player)
+            mutation_one = Mutation(piece_one, point_one)
+            mutation_two = Mutation(piece_two, point_two)
+            mutate_and_check(board, mutation_one)
+            mutate_and_check(board, mutation_two)
+            mutation_move = Mutation(point_one, point_two)
+            mutate_and_check(board, mutation_move)
